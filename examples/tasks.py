@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import time
+
 from easysubmit.base import Scheduler, Task
 from easysubmit.slurm import SLURMCluster, SLURMConfig
 
 
 class ExampleTask(Task):
     def run(self):
+        time.sleep(20)
         print(f"Running task {self.id} with config {self.config}")
 
 
@@ -24,6 +27,7 @@ def main():
     scheduler = Scheduler(cluster)
     scheduler.tasks.append(ExampleTask("task_a", {"name": "Alice"}))
     scheduler.tasks.append(ExampleTask("task_b", {"name": "Bob"}))
+    scheduler.tasks.append(ExampleTask("task_c", {"name": "Charlie"}))
     scheduler.run()
 
 
