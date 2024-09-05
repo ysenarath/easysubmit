@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from easysubmit.base import Scheduler
+from easysubmit.base import Scheduler, Task
 from easysubmit.slurm import SLURMCluster, SLURMConfig
 
 
-def worker_func(config: dict):
-    if config["name"] == "A":
-        raise NotImplementedError
-    print(config)
+class ExampleTask(Task):
+    def run(self):
+        print(f"Running task {self.id} with config {self.config}")
 
 
 def main():
@@ -22,9 +21,9 @@ def main():
         error="{LOGS_DIR}/job-%j-slurm-%x-%A_%a-%N.err",
     )
     cluster = SLURMCluster(config)
-    scheduler = Scheduler(cluster, worker_func)
-    scheduler.configs["A"] = {"name": "A"}
-    scheduler.configs["B"] = {"name": "B"}
+    scheduler = Scheduler(cluster)
+    scheduler.tasks.append(ExampleTask("task_a", {"name": "Alice"}))
+    scheduler.tasks.append(ExampleTask("task_b", {"name": "Bob"}))
     scheduler.run()
 
 
