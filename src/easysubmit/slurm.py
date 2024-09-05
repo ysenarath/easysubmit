@@ -134,8 +134,18 @@ class SLURMJob(Job):
             check=False,
         )
         status = status.stdout.decode("utf-8").strip().upper()
-        if status:
-            return status
+        # in case of array job
+        status = set(status.split())
+        if "PENDING" in status:
+            return "PENDING"
+        if "RUNNING" in status:
+            return "RUNNING"
+        if "CANCELLED" in status:
+            return "CANCELLED"
+        if "FAILED" in status:
+            return "FAILED"
+        if "COMPLETED" in status:
+            return "COMPLETED"
         return "UNKNOWN"
 
     def cancel(self):
