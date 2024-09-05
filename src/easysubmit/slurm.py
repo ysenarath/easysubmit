@@ -8,9 +8,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from subprocess import CompletedProcess  # noqa: S404
 from tempfile import NamedTemporaryFile
-from typing import List
+from typing import List, Callable
 
-from base import Cluster, Job
+from easysubmit.base import Cluster, Job
 
 
 class Lmod:
@@ -82,16 +82,18 @@ def build_sbatch_script(args: List[str], config: SLURMConfig) -> str:
         slurm.append("")
         slurm.append(f"cd {config.cwd}")
     slurm.append("")
-    slurm.extend([
-        'echo "+---------------------------------------+"',
-        'echo "|           SLURM_JOB_INFO              |"',
-        'echo "+---------------------------------------+"',
-        'echo "\tSLURM_JOB_NAME     \t: ${SLURM_JOB_NAME}"',
-        'echo "\tSLURM_JOB_ID       \t: ${SLURM_JOB_ID}"',
-        'echo "\tSLURM_ARRAY_TASK_ID\t: ${SLURM_ARRAY_TASK_ID}"',
-        'echo "\tSLURM_ARRAY_JOB_ID \t: ${SLURM_ARRAY_JOB_ID}"',
-        'echo "+---------------------------------------+"',
-    ])
+    slurm.extend(
+        [
+            'echo "+---------------------------------------+"',
+            'echo "|           SLURM_JOB_INFO              |"',
+            'echo "+---------------------------------------+"',
+            'echo "\tSLURM_JOB_NAME     \t: ${{SLURM_JOB_NAME}}"',
+            'echo "\tSLURM_JOB_ID       \t: ${{SLURM_JOB_ID}}"',
+            'echo "\tSLURM_ARRAY_TASK_ID\t: ${{SLURM_ARRAY_TASK_ID}}"',
+            'echo "\tSLURM_ARRAY_JOB_ID \t: ${{SLURM_ARRAY_JOB_ID}}"',
+            'echo "+---------------------------------------+"',
+        ]
+    )
     if config.venv:
         slurm.append("")
         slurm.append(f"source {config.venv}/bin/activate")
@@ -235,13 +237,17 @@ class SLURMCluster(Cluster):
             id = get_slurm_job_id()
         return SLURMJob(id)
 
-    def schedule(self, args: List[str], **kwargs) -> SLURMJob:
+    def schedule(
+        self, __args: List[str], __format_hook: Callable | None = None, **kwargs
+    ) -> SLURMJob:
         config = copy.deepcopy(self.config)
         for key, value in kwargs.items():
             if not hasattr(config, key):
                 continue
             setattr(config, key, value)
-        script = build_sbatch_script(args, self.config)
+        script = build_sbatch_script(__args, config)
+        if __format_hook is not None:
+            script = __format_hook(script)
         with NamedTemporaryFile(
             "w",
             dir=Path.cwd(),
