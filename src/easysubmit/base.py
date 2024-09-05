@@ -146,6 +146,10 @@ class Scheduler:
                 Path(tasks_path / f"{task.id}.task").touch(exist_ok=False)
             except FileExistsError:
                 continue
+            # skip since somehow there is already a job file
+            job_path = self.base_dir / "jobs" / f"{task.id}.job"
+            if job_path.exists():
+                continue
             task_count += 1
         task_count = min(task_count, max_task_count)
         if task_count == 0:
