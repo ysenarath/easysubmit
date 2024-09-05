@@ -125,7 +125,6 @@ class Scheduler:
         for config_id, config in self.configs.items():
             if task_count >= max_task_count:
                 break
-            print(config_id, config)
             try:
                 with open(config_path / f"{config_id}.json", "x") as f:
                     json.dump(config, f)
