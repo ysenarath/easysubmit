@@ -151,6 +151,7 @@ class Scheduler:
             array=list(range(task_count)),
         )
         # write job id to file
+        (self.base_dir / "jobs").mkdir(exist_ok=True, parents=True)
         job_path = self.base_dir / "jobs" / f"job-{job.id}.job"
         with open(job_path, "w", encoding="utf-8") as f:
             f.write(str(job.id))
