@@ -5,6 +5,8 @@ from easysubmit.slurm import SLURMCluster, SLURMConfig
 
 
 def worker_func(config: dict):
+    if config["name"] == "A":
+        raise NotImplementedError
     print(config)
 
 

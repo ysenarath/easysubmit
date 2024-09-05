@@ -111,8 +111,9 @@ class Scheduler:
     def _job_failed(self, config_id: str, job_id: str, error: Exception):
         # job failed so we need to reschedule it therefor
         # we need to remove the job file and the config file
-        (self.base_dir / "jobs" / f"{config_id}.job").unlink()
-        (self.base_dir / "config" / f"{config_id}.json").unlink()
+        # (self.base_dir / "jobs" / f"{config_id}.job").unlink()
+        # (self.base_dir / "config" / f"{config_id}.json").unlink()
+        pass
 
     def run(self) -> Job:
         if "--worker" in sys.argv:
