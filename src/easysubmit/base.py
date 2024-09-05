@@ -42,7 +42,9 @@ class Job:
 
 
 class Cluster:
-    def schedule(self, args: List[str], **kwargs) -> Job:
+    def schedule(
+        self, __args: List[str], __format_hook: Callable | None = None, **kwargs
+    ) -> Job:
         raise NotImplementedError
 
     @property
@@ -62,15 +64,13 @@ class Scheduler:
         base_dir: Path | str | None = None,
     ):
         if base_dir is None:
-            base_dir = Path.cwd()
+            base_dir = Path.cwd() / "slurm"
         self.base_dir: Path = Path(base_dir)
         self.func = func
         if configs is None:
             configs = {}
         if not isinstance(configs, Mapping):
-            configs = {
-                f"config_{i}": config for i, config in enumerate(configs)
-            }
+            configs = {f"config_{i}": config for i, config in enumerate(configs)}
         self.configs = configs
         self.cluster = cluster
 
@@ -95,8 +95,9 @@ class Scheduler:
             # job successfully completed
             # no more tasks to run
             return
-        errfile = self.base_dir / "logs" / f"{config_id}.err"
-        outfile = self.base_dir / "logs" / f"{config_id}.out"
+        # (self.base_dir / "logs" / f"job-{job_id}").mkdir(exist_ok=True, parents=True)
+        errfile = self.base_dir / "logs" / f"job-{job_id}-config-{config_id}.err"
+        outfile = self.base_dir / "logs" / f"job-{job_id}-config-{config_id}.out"
         with open(errfile, "w", encoding="utf-8") as errfile:  # noqa: SIM117
             with open(outfile, "w", encoding="utf-8") as outfile:
                 with redirect_stdout(outfile), redirect_stderr(errfile):
@@ -124,17 +125,25 @@ class Scheduler:
         for config_id, config in self.configs.items():
             if task_count >= max_task_count:
                 break
+            print(config_id, config)
             try:
-                with open(config_path / f"{config_id}.json", "xb") as f:
+                with open(config_path / f"{config_id}.json", "x") as f:
                     json.dump(config, f)
-                task_count += 1
             except FileExistsError:
                 continue
+            task_count += 1
         task_count = min(task_count, max_task_count)
         if task_count == 0:
             msg = "no more tasks to run"
             raise RuntimeError(msg)
         return self.cluster.schedule(
             ["python", __main__.__file__, "--worker"],
+            self._format_hook,
             array=list(range(task_count)),
+        )
+
+    def _format_hook(self, s: str) -> str:
+        return s.format(
+            BASE_DIR=self.base_dir,
+            LOGS_DIR=self.base_dir / "logs",
         )
