@@ -5,7 +5,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Callable, List, TypeVar
 
-from typing_extensions import ParamSpec
+from typing_extensions import Literal, ParamSpec
 
 import __main__
 
@@ -22,26 +22,13 @@ class Job:
     def __init__(self, id: int | str):
         self.id = id
 
-    def get_status(self) -> str:
+    def get_status(
+        self,
+    ) -> Literal["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "UNKNOWN"]:
         raise NotImplementedError
 
     def cancel(self):
         raise NotImplementedError
-
-    def is_running(self) -> bool:
-        return self.get_status() == "RUNNING"
-
-    def is_pending(self) -> bool:
-        return self.get_status() == "PENDING"
-
-    def is_completed(self) -> bool:
-        return self.get_status() == "COMPLETED"
-
-    def is_failed(self) -> bool:
-        return self.get_status() == "FAILED"
-
-    def is_cancelled(self) -> bool:
-        return self.get_status() == "CANCELLED"
 
 
 class Cluster:
@@ -92,7 +79,7 @@ class Scheduler:
         tasks_path = self.base_dir / "tasks"
         task_id = None
         for file in tasks_path.glob("*.task"):
-            job_path = jobs_path / f"{file.stem}.job"
+            job_path = jobs_path / f"task-{file.stem}.job"
             try:
                 with open(job_path, "x", encoding="utf-8") as f:
                     f.write(str(job_id))
@@ -135,6 +122,9 @@ class Scheduler:
         if "--worker" in sys.argv:
             self.run_worker()
             return
+        if self.is_scheduler_running():
+            msg = "scheduler is already running"
+            raise RuntimeError(msg)
         tasks_path = self.base_dir / "tasks"
         tasks_path.mkdir(exist_ok=True, parents=True)
         max_task_count = 40
@@ -143,11 +133,11 @@ class Scheduler:
             if task_count >= max_task_count:
                 break
             try:
-                Path(tasks_path / f"{task.id}.task").touch(exist_ok=False)
+                Path(tasks_path / f"task-{task.id}.task").touch(exist_ok=False)
             except FileExistsError:
                 continue
             # skip since somehow there is already a job file
-            job_path = self.base_dir / "jobs" / f"{task.id}.job"
+            job_path = self.base_dir / "jobs" / f"task-{task.id}.job"
             if job_path.exists():
                 continue
             task_count += 1
@@ -155,14 +145,28 @@ class Scheduler:
         if task_count == 0:
             msg = "no more tasks to run"
             raise RuntimeError(msg)
-        return self.cluster.schedule(
+        job = self.cluster.schedule(
             ["python", __main__.__file__, "--worker"],
             self._format_hook,
             array=list(range(task_count)),
         )
+        # write job id to file
+        job_path = self.base_dir / "jobs" / f"job-{job.id}.job"
+        with open(job_path, "w", encoding="utf-8") as f:
+            f.write(str(job.id))
 
     def _format_hook(self, s: str) -> str:
         return s.format(
             BASE_DIR=self.base_dir,
             LOGS_DIR=self.base_dir / "logs",
         )
+
+    def is_scheduler_running(self) -> bool:
+        for job_path in (self.base_dir / "jobs").glob("job-*.job"):
+            job_id = job_path.stem
+            job = self.cluster.get_job(job_id)
+            status = job.get_status()
+            if status in ("PENDING", "RUNNING"):
+                return True
+        # UNKOWN, COMPLETED, FAILED, CANCELLED
+        return False

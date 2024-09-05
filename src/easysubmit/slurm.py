@@ -133,7 +133,10 @@ class SLURMJob(Job):
             capture_output=True,
             check=False,
         )
-        return status.stdout.decode("utf-8").strip().upper()
+        status = status.stdout.decode("utf-8").strip().upper()
+        if status:
+            return status
+        return "UNKNOWN"
 
     def cancel(self):
         subprocess.run(
