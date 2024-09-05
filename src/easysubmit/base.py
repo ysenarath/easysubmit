@@ -79,13 +79,14 @@ class Scheduler:
         tasks_path = self.base_dir / "tasks"
         task_id = None
         for file in tasks_path.glob("*.task"):
-            job_path = jobs_path / f"task-{file.stem}.job"
+            _task_id = file.read_text(encoding="utf-8").strip()
+            job_path = jobs_path / f"task-{_task_id}.job"
             try:
                 with open(job_path, "x", encoding="utf-8") as f:
                     f.write(str(job_id))
             except FileExistsError:
                 continue
-            task_id = file.stem
+            task_id = _task_id
             break
         if task_id is None:
             # job successfully completed
@@ -133,7 +134,10 @@ class Scheduler:
             if task_count >= max_task_count:
                 break
             try:
-                Path(tasks_path / f"task-{task.id}.task").touch(exist_ok=False)
+                with open(
+                    tasks_path / f"task-{task.id}.task", "x", encoding="utf-8"
+                ) as f:
+                    f.write(str(task.id))
             except FileExistsError:
                 continue
             # skip since somehow there is already a job file
@@ -164,7 +168,7 @@ class Scheduler:
 
     def is_scheduler_running(self) -> bool:
         for job_path in (self.base_dir / "jobs").glob("job-*.job"):
-            job_id = job_path.stem
+            job_id = job_path.read_text(encoding="utf-8").strip()
             job = self.cluster.get_job(job_id)
             status = job.get_status()
             if status in ("PENDING", "RUNNING"):
