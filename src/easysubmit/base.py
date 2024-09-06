@@ -128,7 +128,7 @@ class Scheduler:
             raise RuntimeError(msg)
         tasks_path = self.base_dir / "tasks"
         tasks_path.mkdir(exist_ok=True, parents=True)
-        max_task_count = 39
+        max_task_count = 20
         task_count = 0
         for task in self.tasks:
             if task_count >= max_task_count:

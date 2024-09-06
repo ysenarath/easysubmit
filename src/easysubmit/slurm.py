@@ -51,7 +51,7 @@ class SLURMConfig:
     ntasks_per_node: int | None = None
     gres: str | None = None
     mem_per_cpu: str | None = None
-    mem: str | None = "2GB"
+    mem: str | None = "16GB"
     time: str = "1:00:00"
     output: str | None = None
     error: str | None = None
