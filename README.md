@@ -1,2 +1,2 @@
-# squid
-squid
+# easysubmit
+easysubmit
