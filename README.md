@@ -18,7 +18,7 @@ git clone https://github.com/ysenarath/easysubmit.git
 cd easysubmit
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .
 ```
 
 #### Method 2: Install using pip
