@@ -94,9 +94,21 @@ def build_sbatch_script(args: List[str], config: SLURMConfig) -> str:
             'echo "+---------------------------------------+"',
         ]
     )
-    if config.venv:
+    activate_path = Path(config.venv) / "bin" / "activate"
+    if config.venv and activate_path.exists():
+        # only required if venv is not activated
         slurm.append("")
-        slurm.append(f"source {config.venv}/bin/activate")
+        slurm.append(f"source {activate_path}")
+    elif config.venv:
+        slurm.append("")
+        slurm.append(f"export PATH={config.venv}/bin:$PATH")
+        # slurm.append(f"alias python='{config.venv}/bin/python")
+        # slurm.append(f"alias pip='{config.venv}/bin/pip")
+        # echo "Python: `which python`"
+        slurm.append('echo "Path to Python: `which python`"')
+    else:
+        raise ValueError("no python environment found")
+
     slurm.append("")
     slurm.append(" ".join(args))
     return "\n".join(slurm)
