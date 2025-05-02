@@ -9,3 +9,6 @@ build:
 
 publish:
 	twine upload dist/*
+
+sync:
+	bash scripts/bin/sync-scratch.sh
