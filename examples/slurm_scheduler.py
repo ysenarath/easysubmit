@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import time
 
-from easysubmit.base import Scheduler, Task
-from easysubmit.slurm import SLURMCluster, SLURMConfig
+from easysubmit import Scheduler, SLURMCluster, SLURMConfig, Task
 
 
 class ExampleTask(Task):
@@ -20,13 +19,14 @@ def main():
         ntasks_per_node=1,
         gres="gpu:3g.40gb:1",
         mem="32G",
-        output="{LOGS_DIR}/job-%j-slurm-%x-%A_%a-%N.out",
-        error="{LOGS_DIR}/job-%j-slurm-%x-%A_%a-%N.err",
+        output="{BASE_DIR}/job-%j-slurm-%x-%A_%a-%N.out",
+        error="{BASE_DIR}/job-%j-slurm-%x-%A_%a-%N.err",
     )
     cluster = SLURMCluster(config)
     scheduler = Scheduler(cluster)
-    scheduler.tasks.append(ExampleTask("task_a", {"name": "Alice"}))
-    scheduler.tasks.append(ExampleTask("task_b", {"name": "Bob"}))
+    scheduler.tasks.append(ExampleTask({"name": "Alice"}))
+    scheduler.tasks.append(ExampleTask({"name": "Bob"}))
+    scheduler.tasks.append(ExampleTask({"name": "Charlie"}))
     scheduler.run()
 
 

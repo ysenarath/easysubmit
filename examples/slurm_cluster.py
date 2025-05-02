@@ -1,4 +1,5 @@
-from easysubmit.slurm import SLURMCluster, SLURMConfig, get_slurm_array_task_id
+from easysubmit import SLURMCluster, SLURMConfig
+from easysubmit.slurm import get_slurm_array_task_id
 
 
 def main():
