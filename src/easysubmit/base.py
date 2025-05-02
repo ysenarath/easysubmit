@@ -51,11 +51,11 @@ class Scheduler:
                 break
             try:
                 # write task to file
-                task_path = self.base_dir / f"task-{task.fingerprint}.json"
+                task_path = self.base_dir / f"{task.fingerprint}-task.json"
                 task.write_json(task_path, mode="x")
             except FileExistsError:
                 continue  # task already exists
-            job_path = self.base_dir / f"worker-{task.fingerprint}.txt"
+            job_path = self.base_dir / f"{task.fingerprint}-worker.txt"
             if job_path.exists():
                 continue  # job already exists
             task_count += 1
@@ -78,10 +78,10 @@ class Scheduler:
     def run_worker(self):
         job_id = self.cluster.current_job.id
         task_id = None
-        for task_path in self.base_dir.glob("task-*.json"):
+        for task_path in self.base_dir.glob("*-task.json"):
             # note that output not be of real task type
             t = Task.read_json(task_path)
-            job_path = self.base_dir / f"worker-{t.fingerprint}.txt"
+            job_path = self.base_dir / f"{t.fingerprint}-worker.txt"
             try:
                 with open(job_path, "x", encoding="utf-8") as f:
                     f.write(str(job_id))
