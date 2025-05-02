@@ -3,14 +3,29 @@ from __future__ import annotations
 import copy
 import os
 import subprocess  # noqa: S404
-import sys
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from subprocess import CompletedProcess  # noqa: S404
 from tempfile import NamedTemporaryFile
-from typing import List, Callable
+from typing import Callable
 
-from easysubmit.base import Cluster, Job
+from easysubmit.entities import Cluster, Job
+from easysubmit.helpers import get_current_venv
+
+__all__ = [
+    "SLURMConfig",
+    "build_sbatch_script",
+    "sbatch",
+    "SLURMJob",
+    "get_slurm_job_array",
+    "parse_slurm_array_arg",
+    "format_slurm_array_arg",
+    "get_slurm_job_id",
+    "get_slurm_array_job_id",
+    "get_slurm_array_task_id",
+    "SLURMCluster",
+]
 
 
 class Lmod:
@@ -39,10 +54,6 @@ class Lmod:
         return modules
 
 
-def get_current_venv() -> Path:
-    return Path(sys.prefix).absolute()
-
-
 @dataclass
 class SLURMConfig:
     partition: str | None = None
@@ -57,12 +68,12 @@ class SLURMConfig:
     error: str | None = None
     job_name: str = "default"
     array: None | list[int] | str = None
-    modules: List[str] | None = field(default_factory=Lmod.list)
+    modules: list[str] | None = field(default_factory=Lmod.list)
     cwd: str | None = field(default_factory=Path.cwd)
     venv: str | None = field(default_factory=get_current_venv)
 
 
-def build_sbatch_script(args: List[str], config: SLURMConfig) -> str:
+def build_sbatch_script(args: Sequence[str], config: SLURMConfig) -> str:
     slurm = ["#!/bin/sh"]
     for key, value in asdict(config).items():
         if key in {"modules", "cwd", "venv"}:
@@ -170,7 +181,7 @@ class SLURMJob(Job):
         return f"SLURMJob(job_id={self.id})"
 
 
-def get_slurm_job_array(id: int | str) -> List[Job]:
+def get_slurm_job_array(id: int | str) -> list[Job]:
     result: CompletedProcess[bytes] = subprocess.run(
         [  # noqa: S603, S607
             "sacct",
@@ -263,7 +274,7 @@ class SLURMCluster(Cluster):
         return SLURMJob(id)
 
     def schedule(
-        self, __args: List[str], __format_hook: Callable | None = None, **kwargs
+        self, __args: Sequence[str], __format_hook: Callable | None = None, **kwargs
     ) -> SLURMJob:
         config = copy.deepcopy(self.config)
         for key, value in kwargs.items():
