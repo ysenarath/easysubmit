@@ -7,24 +7,25 @@ name = "easysubmit"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "Yasas Senarath", email = "12231659+ysenarath@users.noreply.github.com" },
+    { name = "Yasas Senarath", email = "12231659+ysenarath@users.noreply.github.com" },
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: Implementation :: CPython",
-  "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+    "typing-extensions>=4.12.2",
+]
 
 [project.urls]
 Documentation = "https://github.com/ysenarath/easysubmit#readme"
@@ -62,3 +63,6 @@ tests = ["tests", "*/easysubmit/tests"]
 
 [tool.coverage.report]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy" # Accepts: "google", "numpy", or "pep257".
