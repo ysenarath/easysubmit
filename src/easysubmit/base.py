@@ -1,109 +1,121 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+import functools
 import json
-import sys
 from pathlib import Path
-
+from easysubmit.helpers import get_fingerprint
 import __main__
-from easysubmit.entities import Cluster, Job, Task
+import uuid
+from easysubmit.entities import Cluster, TaskConfig, AutoTask
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument(
+    "--worker",
+    action="store_true",
+    help="run the worker script",
+)
+
+parser.add_argument(
+    "--run-id",
+    type=str,
+    help="run id",
+)
+
+args = parser.parse_args()
 
 
-class Scheduler:
-    def __init__(
-        self,
-        cluster: Cluster,
-        tasks: list[Task] | None = None,
-        base_dir: Path | str | None = None,
-    ):
-        if base_dir is None:
-            base_dir = Path.cwd() / "slurm"
-        self.base_dir: Path = Path(base_dir)
-        self.base_dir.mkdir(exist_ok=True, parents=True)
-        self.cluster = cluster
-        self.tasks = tasks or []
+def _format_hook(s: str, base_dir: str | Path) -> str:
+    return s.format(BASE_DIR=str(base_dir))
 
-    def is_scheduler_running(self) -> bool:
-        for job_path in self.base_dir.glob("manifest-*.json"):
-            with open(job_path, "r", encoding="utf-8") as f:
-                manifest = json.load(f)
-            if "job_id" not in manifest:
-                continue
-            job_id = manifest["job_id"]
-            job = self.cluster.get_job(job_id)
-            status = job.get_status()
-            if status in ("PENDING", "RUNNING"):
-                return True
-        return False  # UNKOWN, COMPLETED, FAILED, CANCELLED
 
-    def _format_hook(self, s: str) -> str:
-        return s.format(BASE_DIR=self.base_dir)
+def schedule(
+    cluster: Cluster,
+    configs: Sequence[TaskConfig | dict],
+    base_dir: Path | str | None = None,
+    max_task_count: int = 20,
+) -> None:
+    base_dir = Path(base_dir) if base_dir else Path.cwd() / "easysubmit"
 
-    def run(self, max_task_count: int = 20) -> Job:
-        if "--worker" in sys.argv:
-            self.run_worker()
-            return
-        if self.is_scheduler_running():
-            msg = "scheduler is running"
-            raise RuntimeError(msg)
-        task_count = 0
-        for task in self.tasks:
-            if task_count >= max_task_count:
-                break
-            try:
-                # write task to file
-                task_path = self.base_dir / f"{task.fingerprint}-task.json"
-                task.write_json(task_path, mode="x")
-            except FileExistsError:
-                continue  # task already exists
-            job_path = self.base_dir / f"{task.fingerprint}-worker.txt"
-            if job_path.exists():
-                continue  # job already exists
-            task_count += 1
-        task_count = min(task_count, max_task_count)
-        if task_count == 0:
-            msg = "no tasks to run"
-            raise RuntimeError(msg)
-        job = self.cluster.schedule(
-            # run this script as a worker
-            ["python", __main__.__file__, "--worker"],
-            self._format_hook,
-            array=list(range(task_count)),
-        )
-        # write main job id to file
-        manifest = {"job_id": job.id}
-        main_job_path = self.base_dir / f"manifest-{job.id}.json"
-        with open(main_job_path, "w", encoding="utf-8") as f:
-            json.dump(manifest, f)
+    base_dir.mkdir(parents=True, exist_ok=True)
 
-    def run_worker(self):
-        job_id = self.cluster.current_job.id
-        task_id = None
-        for task_path in self.base_dir.glob("*-task.json"):
-            # note that output not be of real task type
-            t = Task.read_json(task_path)
-            job_path = self.base_dir / f"{t.fingerprint}-worker.txt"
-            try:
-                with open(job_path, "x", encoding="utf-8") as f:
-                    f.write(str(job_id))
-            except FileExistsError:
-                continue
-            task_id = t.id
+    if args.worker:
+        run_worker(cluster, base_dir)
+        return
+
+    tasks = [AutoTask(config) for config in configs]
+
+    # write the configs to a json files
+    task_fingerprints = []
+
+    for task in tasks:
+        if len(task_fingerprints) >= max_task_count:
             break
-        if task_id is None:
-            return
-        task = None
-        for t in self.tasks:
-            if t.id == task_id:
-                task = t
-                break
-        if task is None:
-            msg = f"task {task_id} not found"
-            raise RuntimeError(msg)
+        task_config_path = base_dir / f"{task.config.fingerprint}-task.json"
         try:
-            task.run()
-        except Exception as e:
-            self._job_failed(task.id, job_id, e)
-            raise e
+            with open(task_config_path, "x", encoding="utf-8") as f:
+                json.dump(task.config.to_dict(), f, indent=4)
+        except FileExistsError:
+            continue
+        job_path = base_dir / f"{task.config.fingerprint}-worker.txt"
+        if job_path.exists():
+            continue  # job already exists
+        task_fingerprints.append(task.config.fingerprint)
 
-    def _job_failed(self, task_id: str, job_id: str, error: Exception):
-        pass  # job failed
+    task_count = min(len(task_fingerprints), max_task_count)
+
+    if task_count == 0:
+        msg = "no tasks to run"
+        raise RuntimeError(msg)
+
+    run_id: str = get_fingerprint(uuid.uuid4().hex)
+
+    manifest = {"run_id": run_id, "tasks": task_fingerprints}
+
+    with open(base_dir / f"manifest-{run_id}.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f)
+
+    job = cluster.schedule(
+        # run this script as a worker
+        ["python", __main__.__file__, "--worker", "--run-id", run_id],
+        functools.partial(_format_hook, base_dir=base_dir),
+        array=list(range(task_count)),
+    )
+
+
+def run_worker(cluster: Cluster, base_dir: Path) -> None:
+    run_id = args.run_id
+
+    with open(base_dir / f"manifest-{run_id}.json", "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    fingerprints = manifest["tasks"]
+
+    job_id = cluster.current_job.id
+
+    config = None
+
+    for task_path in base_dir.glob("*-task.json"):
+        config = TaskConfig.from_json(task_path)
+
+        if config.fingerprint not in fingerprints:
+            config = None
+            continue
+
+        job_path = base_dir / f"{config.fingerprint}-worker.txt"
+        try:
+            with open(job_path, "x", encoding="utf-8") as f:
+                f.write(str(job_id))
+        except FileExistsError:
+            config = None
+            continue
+
+        break
+
+    if config is None:
+        return
+
+    task = AutoTask(config)
+    task.run()

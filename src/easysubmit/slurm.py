@@ -247,18 +247,21 @@ def format_slurm_array_arg(array: list[int]) -> str:
 
 
 def get_slurm_job_id() -> str | None:
+    # SLURM_JOB_ID will be set to the unique job ID of the current job.
     if "SLURM_JOB_ID" not in os.environ:
         return None
     return os.environ["SLURM_JOB_ID"].strip()
 
 
 def get_slurm_array_job_id() -> str | None:
-    if "SLURM_JOB_ID" not in os.environ:
+    # SLURM_ARRAY_JOB_ID will be set to the first job ID of the array.
+    if "SLURM_ARRAY_JOB_ID" not in os.environ:
         return None
-    return os.environ["SLURM_JOB_ID"].strip()
+    return os.environ["SLURM_ARRAY_JOB_ID"].strip()
 
 
 def get_slurm_array_task_id() -> int | None:
+    # SLURM_ARRAY_TASK_ID will be set to the job array index value.
     if "SLURM_ARRAY_TASK_ID" not in os.environ:
         return None
     return int(os.environ["SLURM_ARRAY_TASK_ID"])
@@ -271,6 +274,11 @@ class SLURMCluster(Cluster):
     def get_job(self, id: str | None = None) -> Job:  # noqa: PLR6301
         if id is None:
             id = get_slurm_job_id()
+        return SLURMJob(id)
+
+    def get_array_job(self, id: str | None = None) -> Job:
+        if id is None:
+            id = get_slurm_array_job_id()
         return SLURMJob(id)
 
     def schedule(

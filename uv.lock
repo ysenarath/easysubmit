@@ -6,11 +6,27 @@ requires-python = ">=3.9"
 name = "easysubmit"
 source = { editable = "." }
 dependencies = [
+    { name = "nightjar" },
     { name = "typing-extensions" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "typing-extensions", specifier = ">=4.12.2" }]
+requires-dist = [
+    { name = "nightjar", specifier = ">=0.0.5" },
+    { name = "typing-extensions", specifier = ">=4.12.2" },
+]
+
+[[package]]
+name = "nightjar"
+version = "0.0.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/48/3d7ea4e0e3e4dbe9e2e3f5d42c0adf53e8b8a72c928b356402fe54f7bfc1/nightjar-0.0.5.tar.gz", hash = "sha256:2504acf120992e8707aee1168a9a8bd6ec9b5ddad27c98561ec78c608f0f00c5", size = 9948 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/7e/fdf781640c61fc75c9a93ba38d1fca4404ee44637a0df35a94cfc4603c1a/nightjar-0.0.5-py3-none-any.whl", hash = "sha256:0d2f4d6a38a7ea82ce4f581c62195ab41b02322e445e8859598c9a0c9e90668a", size = 8594 },
+]
 
 [[package]]
 name = "typing-extensions"

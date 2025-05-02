@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import sys
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -53,3 +56,30 @@ class ValidatedProperty(Generic[T, R]):
             msg = f"validation failed for {self.name} with value {value}"
             raise ValidationError(msg) from e
         instance.__dict__[self.name] = value
+
+
+def get_fingerprint(obj: Any) -> str:
+    # 1. Serialize to canonical JSON string
+    raw = json.dumps(
+        obj,
+        sort_keys=True,  # Ensures key order consistency
+        separators=(",", ":"),  # Ensures compact, consistent spacing
+        ensure_ascii=False,  # Allows unicode characters
+    )
+
+    # 2. Encode the string to bytes (required by hash functions)
+    raw_bytes = raw.encode("utf-8")
+
+    # 3. Hash using BLAKE2b with a 16-byte (128-bit) digest size
+    #    Use .digest() to get the raw bytes of the hash
+    #    Using 16 bytes provides good collision resistance and a shorter hash.
+    #    For 256-bit (like SHA-256), use digest_size=32.
+    hasher = hashlib.blake2b(digest_size=16)
+    hasher.update(raw_bytes)
+    encoded_hash_bytes = hasher.digest()
+
+    # 4. Encode the raw hash bytes using URL-safe Base64
+    base64_encoded = base64.urlsafe_b64encode(encoded_hash_bytes)
+
+    # 5. Decode the Base64 bytes into a string
+    return base64_encoded.decode("utf-8").rstrip("=")
