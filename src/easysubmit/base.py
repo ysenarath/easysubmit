@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+import argparse
 import functools
 import json
-from pathlib import Path
-from easysubmit.helpers import get_fingerprint
-import __main__
 import uuid
-from easysubmit.entities import Cluster, TaskConfig, AutoTask
-import argparse
+from collections.abc import Sequence
+from pathlib import Path
+
+import __main__
+from easysubmit.entities import AutoTask, Cluster, TaskConfig
+from easysubmit.helpers import get_fingerprint
 
 parser = argparse.ArgumentParser()
 
