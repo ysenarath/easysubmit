@@ -11,21 +11,25 @@ import __main__
 from easysubmit.entities import AutoTask, Cluster, TaskConfig
 from easysubmit.helpers import get_fingerprint
 
-parser = argparse.ArgumentParser()
 
-parser.add_argument(
-    "--worker",
-    action="store_true",
-    help="run the worker script",
-)
+class AppArgs:
+    worker: bool
+    run_id: str | None
 
-parser.add_argument(
-    "--run-id",
-    type=str,
-    help="run id",
-)
 
-args = parser.parse_args()
+def _parse_args() -> AppArgs:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--worker",
+        action="store_true",
+        help="run the worker script",
+    )
+    parser.add_argument(
+        "--run-id",
+        type=str,
+        help="run id",
+    )
+    return parser.parse_args()
 
 
 def _format_hook(s: str, base_dir: str | Path) -> str:
@@ -37,13 +41,16 @@ def schedule(
     configs: Sequence[TaskConfig | dict],
     base_dir: Path | str | None = None,
     max_task_count: int = 20,
+    profile: bool = True,
 ) -> None:
     base_dir = Path(base_dir) if base_dir else Path.cwd() / "easysubmit"
 
     base_dir.mkdir(parents=True, exist_ok=True)
 
+    args = _parse_args()
+
     if args.worker:
-        run_worker(cluster, base_dir)
+        run_worker(cluster, base_dir, args.run_id)
         return
 
     tasks = [AutoTask(config) for config in configs]
@@ -78,17 +85,28 @@ def schedule(
     with open(base_dir / f"manifest-{run_id}.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f)
 
+    if profile:
+        cmd_args = [
+            "python",
+            "-m",
+            "memory_profiler",
+            __main__.__file__,
+            "--worker",
+            "--run-id",
+            run_id,
+        ]
+    else:
+        cmd_args = ["python", __main__.__file__, "--worker", "--run-id", run_id]
+
     job = cluster.schedule(
         # run this script as a worker
-        ["python", __main__.__file__, "--worker", "--run-id", run_id],
+        cmd_args,
         functools.partial(_format_hook, base_dir=base_dir),
         array=list(range(task_count)),
     )
 
 
-def run_worker(cluster: Cluster, base_dir: Path) -> None:
-    run_id = args.run_id
-
+def run_worker(cluster: Cluster, base_dir: Path, run_id: str) -> None:
     with open(base_dir / f"manifest-{run_id}.json", "r", encoding="utf-8") as f:
         manifest = json.load(f)
 
