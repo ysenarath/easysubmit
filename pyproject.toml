@@ -23,10 +23,10 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = [
-    "nightjar>=0.0.5",
-    "typing-extensions>=4.12.2",
-]
+dependencies = ["nightjar>=0.0.5", "typing-extensions>=4.12.2"]
+
+[dependency-groups]
+dev = ["twine", "ruff"]
 
 [project.urls]
 Documentation = "https://github.com/ysenarath/easysubmit#readme"
@@ -45,7 +45,7 @@ cov-report = ["- coverage combine", "coverage report"]
 cov = ["test-cov", "cov-report"]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+python = ["3.9", "3.10", "3.11", "3.12"]
 
 [tool.hatch.envs.types]
 dependencies = ["mypy>=1.0.0"]
