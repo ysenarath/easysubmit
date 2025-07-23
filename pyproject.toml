@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "easysubmit"
 dynamic = ["version"]
-description = ''
+description = "A Python library for simplified job scheduling and management on SLURM clusters"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
