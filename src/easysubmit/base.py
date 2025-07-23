@@ -10,11 +10,17 @@ from pathlib import Path
 import __main__
 from easysubmit.entities import AutoTask, Cluster, TaskConfig
 from easysubmit.helpers import get_fingerprint
+from easysubmit.profiler import (
+    enable_profiling,
+    is_profiler_avilable,
+    SCALENE_DEPENDENCY_MISSING_ERROR,
+)
 
 
 class AppArgs:
     worker: bool
     run_id: str | None
+    profile: bool
 
 
 def _parse_args() -> AppArgs:
@@ -29,6 +35,12 @@ def _parse_args() -> AppArgs:
         type=str,
         help="run id",
     )
+    # add profilers
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="enable profiling with scalene",
+    )
     return parser.parse_args()
 
 
@@ -36,13 +48,28 @@ def _format_hook(s: str, base_dir: str | Path) -> str:
     return s.format(BASE_DIR=str(base_dir))
 
 
+def _validate_profilers(profilers: bool | str | Sequence[str]) -> Sequence[str] | None:
+    if profilers is True or profilers == "all":
+        profilers = ["cpu", "memory", "gpu"]
+    elif isinstance(profilers, str):
+        profilers = profilers.split(",")
+        profilers = list(map(str.strip, profilers))
+    elif not all(isinstance(p, str) for p in profilers):
+        profilers = None
+    else:
+        profilers = list(map(str.strip, profilers))
+    return profilers
+
+
 def schedule(
     cluster: Cluster,
     configs: Sequence[TaskConfig | dict],
     base_dir: Path | str | None = None,
     max_task_count: int = 20,
-    profile: bool = True,
+    profilers: bool | Sequence[str] | None = None,
 ) -> None:
+    profilers = _validate_profilers(profilers)
+
     base_dir = Path(base_dir) if base_dir else Path.cwd() / "easysubmit"
 
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -50,7 +77,7 @@ def schedule(
     args = _parse_args()
 
     if args.worker:
-        run_worker(cluster, base_dir, args.run_id)
+        run_worker(cluster, base_dir, args.run_id, args.profile)
         return
 
     tasks = [AutoTask(config) for config in configs]
@@ -85,20 +112,28 @@ def schedule(
     with open(base_dir / f"manifest-{run_id}.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f)
 
-    if profile:
+    if profilers:
+        profile_file_name = "job-${{SLURM_JOB_ID}}-scalene.json"
         cmd_args = [
             "python",
             "-m",
-            "memory_profiler",
+            "scalene",
+            "--json",
+            *[f"--{p}" for p in profilers],
+            "--outfile",
+            str(base_dir / profile_file_name),
+            "---",
             __main__.__file__,
             "--worker",
             "--run-id",
             run_id,
         ]
+        if not is_profiler_avilable():
+            raise ImportError(SCALENE_DEPENDENCY_MISSING_ERROR)
     else:
         cmd_args = ["python", __main__.__file__, "--worker", "--run-id", run_id]
 
-    job = cluster.schedule(
+    return cluster.schedule(
         # run this script as a worker
         cmd_args,
         functools.partial(_format_hook, base_dir=base_dir),
@@ -106,7 +141,12 @@ def schedule(
     )
 
 
-def run_worker(cluster: Cluster, base_dir: Path, run_id: str) -> None:
+def run_worker(
+    cluster: Cluster,
+    base_dir: Path,
+    run_id: str,
+    profile: bool = False,
+) -> None:
     with open(base_dir / f"manifest-{run_id}.json", "r", encoding="utf-8") as f:
         manifest = json.load(f)
 
@@ -137,4 +177,6 @@ def run_worker(cluster: Cluster, base_dir: Path, run_id: str) -> None:
         return
 
     task = AutoTask(config)
-    task.run()
+
+    with enable_profiling():
+        task.run()
