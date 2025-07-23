@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import ClassVar
 
-from easysubmit import Task, TaskConfig, AutoTask
+from easysubmit import AutoTask, Task, TaskConfig
 
 
 class ExampleTaskConfig1(TaskConfig):

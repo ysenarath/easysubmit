@@ -13,15 +13,23 @@ class ExperimentConfig(TaskConfig):
     param2: int = 0
 
 
+def some_other_slow_function():
+    # Simulate a slow function
+    print("Starting some_other_slow_function")
+    for i in range(3):
+        time.sleep(2)
+        print(f"Running some_other_slow_function iteration {i + 1}")
+    print("Finished some_other_slow_function")
+
+
 class Experiment(Task):
     config: ExperimentConfig
 
     def run(self):
-        # Simulate a long-running task
         print(
             f"Running experiment with param1={self.config.param1} and param2={self.config.param2}"
         )
-        time.sleep(5)
+        some_other_slow_function()
 
 
 def main():
@@ -43,7 +51,7 @@ def main():
         {"name": "Experiment", "param1": "value4", "param2": 4},
         {"name": "Experiment", "param1": "value5", "param2": 5},
     ]
-    schedule(cluster, experiments)
+    schedule(cluster, experiments, profilers=True)
 
 
 if __name__ == "__main__":
