@@ -54,7 +54,7 @@ def _validate_profilers(profilers: bool | str | Sequence[str]) -> Sequence[str] 
     elif isinstance(profilers, str):
         profilers = profilers.split(",")
         profilers = list(map(str.strip, profilers))
-    elif not all(isinstance(p, str) for p in profilers):
+    elif profilers is None or not all(isinstance(p, str) for p in profilers):
         profilers = None
     else:
         profilers = list(map(str.strip, profilers))
