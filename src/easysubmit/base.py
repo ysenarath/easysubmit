@@ -127,6 +127,7 @@ def schedule(
             "--worker",
             "--run-id",
             run_id,
+            "--profile",
         ]
         if not is_profiler_avilable():
             raise ImportError(SCALENE_DEPENDENCY_MISSING_ERROR)
@@ -178,5 +179,8 @@ def run_worker(
 
     task = AutoTask(config)
 
-    with enable_profiling():
+    if profile:
+        with enable_profiling():
+            task.run()
+    else:
         task.run()
