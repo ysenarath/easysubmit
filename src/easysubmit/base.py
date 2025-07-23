@@ -113,12 +113,15 @@ def schedule(
         json.dump(manifest, f)
 
     if profilers:
-        profile_file_name = "job-${{SLURM_JOB_ID}}-scalene.json"
+        profile_file_name = "job-${{SLURM_JOB_ID}}-scalene.html"
+        # --profile-interval
         cmd_args = [
             "python",
             "-m",
             "scalene",
-            "--json",
+            "--profile-interval",
+            "5.0",
+            "--html",
             *[f"--{p}" for p in profilers],
             "--outfile",
             str(base_dir / profile_file_name),
