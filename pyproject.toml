@@ -33,6 +33,9 @@ Documentation = "https://github.com/ysenarath/easysubmit#readme"
 Issues = "https://github.com/ysenarath/easysubmit/issues"
 Source = "https://github.com/ysenarath/easysubmit"
 
+[project.optional-dependencies]
+scalene = ["scalene>=1.5.51"]
+
 [tool.hatch.version]
 path = "src/easysubmit/__init__.py"
 
@@ -66,4 +69,4 @@ tests = ["tests", "*/easysubmit/tests"]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "numpy" # Accepts: "google", "numpy", or "pep257".
+convention = "numpy"
