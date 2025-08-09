@@ -34,6 +34,7 @@ def _parse_args() -> AppArgs:
         "--run-id",
         type=str,
         help="run id",
+        default=None,
     )
     # add profilers
     parser.add_argument(
