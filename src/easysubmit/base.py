@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import __main__
-from easysubmit.entities import AutoTask, Cluster, TaskConfig
+from easysubmit.entities import AutoTask, Cluster, Job, TaskConfig
 from easysubmit.helpers import get_fingerprint
 from easysubmit.profiler import (
     enable_profiling,
@@ -64,22 +64,25 @@ def _validate_profilers(profilers: bool | str | Sequence[str]) -> Sequence[str] 
 
 def schedule(
     cluster: Cluster,
-    configs: Sequence[TaskConfig | dict],
+    configs: Sequence[TaskConfig | dict] | TaskConfig | dict,
     base_dir: Path | str | None = None,
     max_task_count: int = 20,
     profilers: bool | Sequence[str] | None = None,
-) -> None:
+) -> Job:
     profilers = _validate_profilers(profilers)
 
     base_dir = Path(base_dir) if base_dir else Path.cwd() / "easysubmit"
 
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    args = _parse_args()
+    cli_args = _parse_args()
 
-    if args.worker:
-        run_worker(cluster, base_dir, args.run_id, args.profile)
+    if cli_args.worker:
+        run_worker(cluster, base_dir, cli_args.run_id, cli_args.profile)
         return
+
+    if isinstance(configs, (TaskConfig, dict)):
+        configs = [configs]
 
     tasks = [AutoTask(config) for config in configs]
 
