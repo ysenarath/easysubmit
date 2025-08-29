@@ -303,3 +303,15 @@ class SLURMCluster(Cluster):
             file.flush()
             job = sbatch(file.name)
         return job
+
+    @classmethod
+    def is_available(cls) -> bool:
+        try:
+            subprocess.run(  # noqa: S603, S607
+                ["sinfo"],
+                capture_output=True,
+                check=True,
+            )
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return False
