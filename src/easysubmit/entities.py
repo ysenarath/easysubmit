@@ -71,6 +71,10 @@ class Job:
     def cancel(self):
         raise NotImplementedError
 
+    @classmethod
+    def is_available(cls) -> bool:
+        return False
+
 
 class TaskConfig(BaseConfig, dispatch="name"):
     name: ClassVar[str]
