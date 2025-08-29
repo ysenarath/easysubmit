@@ -1,7 +1,9 @@
 from easysubmit.entities import Cluster, Job, Task, TaskConfig, AutoTask
 from easysubmit.slurm import SLURMCluster, SLURMConfig
+from easysubmit.functions import Function
+from easysubmit.base import schedule
 
-__version__ = "0.2.4"
+__version__ = "0.3.0"
 
 __all__ = [
     "Task",
@@ -11,4 +13,6 @@ __all__ = [
     "Cluster",
     "SLURMCluster",
     "SLURMConfig",
+    "schedule",
+    "Function",
 ]
