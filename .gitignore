@@ -167,3 +167,6 @@ slurm/
 
 # some bin files for testing (e.g., sync with servers)
 scripts/bin/
+examples/accuracy_metric.pkl
+examples/test_load_metric.py
+examples/test_save_metric.py
