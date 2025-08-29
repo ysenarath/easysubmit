@@ -1,0 +1,6 @@
+transformers[torch]
+datasets
+torch
+datasets
+evaluate
+scikit-learn
