@@ -34,10 +34,23 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = ["nightjar>=0.0.5", "typing-extensions>=4.12.2"]
+dependencies = [
+    "cloudpickle>=3.1.1",
+    "nightjar>=0.0.5",
+    "typing-extensions>=4.12.2",
+]
 
 [dependency-groups]
-dev = ["twine", "ruff"]
+dev = [
+    "twine>=6.1.0",
+    "ruff>=0.11.8",
+    "transformers[torch]>=4.55.2",
+    "datasets>=4.0.0",
+    "torch>=2.8.0",
+    "evaluate>=0.4.5",
+    "invoke>=2.2.0",
+    "scikit-learn>=1.6.1",
+]
 
 [project.urls]
 Documentation = "https://github.com/ysenarath/easysubmit#readme"
@@ -81,3 +94,6 @@ exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+
+[tool.uv]
+default-groups = []
