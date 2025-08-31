@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import inspect
+import logging
 import os
 import sys
 import threading
@@ -22,6 +23,8 @@ from easysubmit.base import schedule
 from easysubmit.entities import Cluster, Job, Task, TaskConfig
 
 FSW_TASK_NAME = "easysubmit.functions.FileSystemWorker"
+
+logger = logging.getLogger(__name__)
 
 
 def import_function(file_or_module: str, func_name: str) -> callable:
@@ -190,17 +193,24 @@ class FunctionExecutor:
     def execute(self, submit_id: str, remove: bool = False):
         input_path = self.dir / f"{submit_id}.input"
         output_path = self.dir / f"{submit_id}.output"
+        logger.info(f"Starting execution for submit_id: {submit_id}")
         bound_func = BoundFunction.load(input_path)
+        logger.debug(f"Loaded BoundFunction from {input_path}")
         try:
             result = bound_func()
             payload = {"ok": True, "result": result}
+            logger.info(f"Execution successful for submit_id: {submit_id}")
         except Exception as e:
             tb = traceback.format_exc()
             payload = {"ok": False, "exception": e, "traceback": tb}
+            logger.error(f"Execution failed for submit_id: {submit_id}")
+            logger.debug(f"Exception traceback: {tb}")
         with open(output_path, "wb") as f:
             dill.dump(payload, f)
+        logger.debug(f"Output written to {output_path}")
         if remove:
             os.remove(input_path)
+            logger.debug(f"Input file {input_path} removed")
 
 
 class FileSystemDynamicWorker(FileSystemEventHandler):
