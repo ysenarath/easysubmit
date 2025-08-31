@@ -1,106 +1,238 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-import functools
-import tempfile
-from pathlib import Path
+import importlib
+import importlib.util
+import inspect
+import os
+import sys
+import threading
 import time
+import traceback
+from collections.abc import Callable
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from typing import ClassVar
 
-import cloudpickle
+import dill
+from typing_extensions import Self
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
-from easysubmit.entities import Cluster
+from easysubmit.base import schedule
+from easysubmit.entities import Cluster, Job, Task, TaskConfig
 
-__all__ = [
-    "Function",
-]
-
-
-def _format_hook(s: str, base_dir: str | Path) -> str:
-    return s.format(BASE_DIR=str(base_dir))
+FSW_TASK_NAME = "easysubmit.functions.FileSystemWorker"
 
 
-@dataclass
+def import_function(file_or_module: str, func_name: str) -> callable:
+    if os.path.isfile(file_or_module):
+        # If path exists and is a file, load as module from path
+        module_name = (
+            f"_temp_module_{os.path.basename(file_or_module).replace('.', '_')}"
+        )
+        spec = importlib.util.spec_from_file_location(module_name, file_or_module)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot load module from path: {file_or_module}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+    else:
+        # Treat as regular module name
+        module = importlib.import_module(file_or_module)
+    if not hasattr(module, func_name):
+        raise AttributeError(f"Function '{func_name}' not found in {file_or_module}")
+    func = getattr(module, func_name)
+    if not callable(func):
+        raise TypeError(f"'{func_name}' exists in {file_or_module} but is not callable")
+    return func
+
+
+class BoundFunction:
+    __slots__ = ("module", "name", "args", "kwargs")
+
+    def __init__(self, __func: Callable, /, *args, **kwargs):
+        m = inspect.getmodule(__func)
+        if m.__name__ == "__main__":
+            module, name = m.__file__, __func.__name__
+        else:
+            module, name = m.__name__, __func.__name__
+        self.module = module
+        self.name = name
+        self.args = args
+        self.kwargs = kwargs
+
+    def dump(self, path: str | Path):
+        attrs = {}
+        for k in self.__slots__:
+            attrs[k] = getattr(self, k)
+        with open(path, "wb") as f:
+            dill.dump(attrs, f)
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        attrs = {}
+        with open(path, "rb") as f:
+            attrs.update(dill.load(f))
+        self = cls.__new__(cls)
+        for k, v in attrs.items():
+            setattr(self, k, v)
+        return self
+
+    def __call__(self):
+        func = import_function(self.module, self.name)
+        return func(*self.args, **self.kwargs)
+
+
+class FileHandler(FileSystemEventHandler):
+    def __init__(self, filename: str):
+        self.filename = filename
+        self.ready = False
+
+    def on_created(self, event) -> None:
+        if event.src_path.endswith(self.filename):
+            self.ready = True
+
+
 class Future:
-    path: Path
+    def __init__(self, dir: str | Path, submit_id: str, job: Job | None = None):
+        self.dir = Path(dir).resolve()
+        self.submit_id = submit_id
+        self.job = job
+        self.condition = threading.Condition()
+        self.ready = False
 
-    @property
-    def path(self) -> Path:
-        return self._path
+    def _file_ready(self):
+        with self.condition:
+            self.ready = True
+            self.condition.notify_all()
 
-    @path.setter
-    def path(self, value: str | Path):
-        self._path = Path(value)
+    def _status_ready(self):
+        with self.condition:
+            self.ready = True
+            self.condition.notify_all()
 
-    def add_done_callback(self, callback):
-        raise NotImplementedError
+    def _monitor_status(self):
+        if not self.job:
+            return
+        status = self.job.get_status()
+        while True:
+            time.sleep(0.1)
+            if status in ("COMPLETED", "FAILED", "CANCELLED", "UNKNOWN"):
+                self._status_ready()
+                break
 
-    def done(self) -> bool:
-        output_path = Path(self.path) / "output.pkl"
-        return output_path.exists()
-
-    def result(self):
-        output_path = Path(self.path) / "output.pkl"
-        with output_path.open("rb") as f:
-            return cloudpickle.load(f)
-
-    def wait(self, timeout: int | float | None = None, sleep: int | float = 1):
-        # get the current time in seconds since the epoch
+    def wait(self, timeout: int | float | None = None):
         start = time.time()
-        if timeout is None:
-            timeout = -1
-        while not self.done():
-            diff = time.time() - start
-            if timeout >= 0 and diff > timeout:
-                raise TimeoutError("Timeout waiting for result.")
-            time.sleep(sleep)
+        handler = FileHandler(f"{self.submit_id}.output")
+        # Set up watchdog observer to monitor the directory for output file creation
+        observer = Observer()
+        observer.schedule(handler, str(self.dir), recursive=False)
+        observer.start()
+        # Start a thread to monitor job status if job is provided
+        if self.job:
+            status_thread = threading.Thread(target=self._monitor_status)
+            status_thread.start()
+        try:
+            with self.condition:
+                while not handler.ready:
+                    if timeout is None:
+                        remaining = None
+                    else:
+                        remaining = timeout - (time.time() - start)
+                    if remaining is not None and remaining <= 0:
+                        raise TimeoutError("waiting for result timed out")
+                    self.condition.wait(timeout=remaining)
+        finally:
+            observer.stop()
+            observer.join()
+            if status_thread:
+                status_thread.join()
+
+    def result(self) -> any:
+        self.wait()
+        path = self.dir / f"{self.submit_id}.output"
+        with open(path, "rb") as f:
+            payload = dill.load(f)
+        if not payload["ok"]:
+            exc = payload["exception"]
+            if exc:
+                raise exc
+            err = "error occurred in function execution"
+            raise RuntimeError(err)
+        return payload["result"]
 
 
-class Function:
-    def __init__(self, __func, /, cluster: Cluster, dir: Path | str):
-        self.func = __func
-        self.dir = Path(dir)
-        self.dir.mkdir(parents=True, exist_ok=True)
-        # make sure the base_dir exists
-        if not self.dir.exists():
-            err = f"'{self.dir}' does not exist"
-            raise FileNotFoundError(err)
+class FunctionExecutor:
+    def __init__(self, dir: str | Path, cluster: Cluster | None = None):
+        dir = Path(dir)
+        dir.mkdir(parents=True, exist_ok=True)
+        self.dir = dir
         self.cluster = cluster
 
-    def __call__(self, *args, **kwargs) -> Future:
-        pfunc = functools.partial(self.func, args, kwargs)
-        p = Path(tempfile.mkdtemp(dir=self.dir))
-        f = p / "input.pkl"
-        with f.open("wb") as f:
-            cloudpickle.dump(pfunc, f)
-        f = p / "run.py"
-        f.write_text(pyfile(), encoding="utf-8")
-        args = ["python", str(f)]
-        job = self.cluster.schedule(
-            args,
-            functools.partial(_format_hook, base_dir=p),
-        )
-        # write the job id to a file so we can track it later
-        job_id_file = p / "job_id.txt"
-        job_id_file.write_text(str(job.id), encoding="utf-8")
-        return Future(p)
+    def submit(self, __func, /, *args, **kwargs) -> Future:
+        submit_id = None
+        with NamedTemporaryFile(dir=self.dir, suffix=".input", delete=False) as f:
+            path = Path(f.name)
+            BoundFunction(__func, *args, **kwargs).dump(path)
+            submit_id = path.stem
+        job = None
+        if self.cluster:
+            job = schedule(
+                self.cluster,
+                {
+                    "name": FSW_TASK_NAME,
+                    "dir": str(self.dir),
+                    "submit_id": submit_id,
+                },
+            )
+        return Future(self.dir, submit_id, job=job)
+
+    def execute(self, submit_id: str, remove: bool = False):
+        input_path = self.dir / f"{submit_id}.input"
+        output_path = self.dir / f"{submit_id}.output"
+        bound_func = BoundFunction.load(input_path)
+        try:
+            result = bound_func()
+            payload = {"ok": True, "result": result}
+        except Exception as e:
+            tb = traceback.format_exc()
+            payload = {"ok": False, "exception": e, "traceback": tb}
+        with open(output_path, "wb") as f:
+            dill.dump(payload, f)
+        if remove:
+            os.remove(input_path)
 
 
-def pyfile():
-    return """\
-from pathlib import Path
-import cloudpickle
+class FileSystemDynamicWorker(FileSystemEventHandler):
+    def __init__(self, dir: str | Path):
+        self.dir = Path(dir).resolve()
 
-def run():
-    path = Path(__file__).parent
-    input_path = path / "input.pkl"
-    with input_path.open("rb") as input_file:
-        func = cloudpickle.load(input_file)
-    output = func()
-    # save output to a file in the base directory
-    output_path = path / "output.pkl"
-    with output_path.open("wb") as output_file:
-        cloudpickle.dump(output, output_file)
+    def on_created(self, event):
+        if event.src_path.endswith(".input"):
+            submit_id = Path(event.src_path).stem
+            FunctionExecutor(self.dir).execute(submit_id)
 
-if __name__ == "__main__":
-    run()
-"""
+    def run(self):
+        observer = Observer()
+        observer.schedule(self, str(self.dir), recursive=False)
+        observer.start()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
+
+
+class FileSystemWorkerConfig(TaskConfig):
+    name: ClassVar[str] = FSW_TASK_NAME
+    dir: str
+    submit_id: str
+
+
+class FileSystemWorker(Task):
+    config: FileSystemWorkerConfig
+
+    def run(self):
+        fex = FunctionExecutor(self.config.dir)
+        fex.execute(self.config.submit_id, remove=True)
