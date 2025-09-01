@@ -9,11 +9,11 @@ from pathlib import Path
 
 import __main__
 from easysubmit.entities import AutoTask, Cluster, Job, TaskConfig
-from easysubmit.helpers import get_fingerprint
+from easysubmit.helpers import format_hook, get_fingerprint
 from easysubmit.profiler import (
+    SCALENE_DEPENDENCY_MISSING_ERROR,
     enable_profiling,
     is_profiler_avilable,
-    SCALENE_DEPENDENCY_MISSING_ERROR,
 )
 
 
@@ -43,10 +43,6 @@ def _parse_args() -> AppArgs:
         help="enable profiling with scalene",
     )
     return parser.parse_args()
-
-
-def _format_hook(s: str, base_dir: str | Path) -> str:
-    return s.format(BASE_DIR=str(base_dir))
 
 
 def _validate_profilers(profilers: bool | str | Sequence[str]) -> Sequence[str] | None:
@@ -144,7 +140,7 @@ def schedule(
     return cluster.schedule(
         # run this script as a worker
         cmd_args,
-        functools.partial(_format_hook, base_dir=base_dir),
+        functools.partial(format_hook, base_dir=base_dir),
         array=list(range(task_count)),
     )
 
