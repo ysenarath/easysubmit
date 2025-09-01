@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import copy
 import os
-import subprocess  # noqa: S404
+import subprocess
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from subprocess import CompletedProcess  # noqa: S404
+from subprocess import CompletedProcess
 from tempfile import NamedTemporaryFile
 from typing import Callable
 
