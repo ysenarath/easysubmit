@@ -3,13 +3,33 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import sys
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any, Callable, Generic, Type, TypeVar
 
+from easysubmit.config import EASYSUBMIT_PATH
+
+__all__ = [
+    "gettempdir",
+]
+
+
 T = TypeVar("T")
 R = TypeVar("R")
+
+
+def gettempdir() -> str:
+    """Get the temporary directory from environment or default."""
+    temp_dir = Path(EASYSUBMIT_PATH) / "temp"
+    # make sure the directory exists
+    os.makedirs(temp_dir, exist_ok=True)
+    return str(temp_dir)
+
+
+def format_hook(s: str, base_dir: str | Path) -> str:
+    return s.format(BASE_DIR=str(base_dir))
 
 
 def get_current_venv() -> Path:
