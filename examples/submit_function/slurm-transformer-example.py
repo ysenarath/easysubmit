@@ -1,5 +1,4 @@
 import time
-from pathlib import Path
 
 import evaluate
 import numpy as np
@@ -81,16 +80,16 @@ def main():
     )
     cluster = SLURMCluster(config)
 
-    dir = Path(__file__).parent / "tmp"
-    fexec = FunctionExecutor(dir, cluster=cluster)
+    fe = FunctionExecutor(cluster=cluster)
 
     # Dummy data
     texts = [f"This is example {i}" for i in range(200)]
     labels = np.random.randint(0, 2, size=200).tolist()
 
     print("Submitting transformer training job...")
-    future = fexec.submit(train_transformer, texts, labels)
+    future = fe.submit(train_transformer, texts, labels)
     result = future.result()
+
     print(f"Training finished. Result: {result}")
     time.sleep(1)
 
