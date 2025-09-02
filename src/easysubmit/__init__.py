@@ -3,7 +3,7 @@ from easysubmit.slurm import SLURMCluster, SLURMConfig
 from easysubmit.functions import FunctionExecutor
 from easysubmit.base import schedule
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "Task",
