@@ -17,8 +17,8 @@ import click
 import dill
 from typing_extensions import Self
 
-from easysubmit.helpers import gettempdir, format_hook
 from easysubmit.entities import Cluster, Job, Task, TaskConfig
+from easysubmit.helpers import format_hook, gettempdir
 
 FSW_TASK_NAME = "FileSystemWorker"
 
@@ -149,13 +149,16 @@ class Future:
         self.wait()
         output_path = self.get_output_path()
         with open(output_path, "rb") as f:
-            payload = dill.load(f)
+            payload: dict = dill.load(f)
         if not payload["ok"]:
-            exc = payload["exception"]
+            exc: Exception | None = payload["exception"]
+            tb = payload.get("traceback")
+            if tb:
+                tb = RuntimeError(tb)
             if exc:
-                raise exc
+                raise exc from tb
             err = "error occurred in function execution"
-            raise RuntimeError(err)
+            raise RuntimeError(err) from tb
         return payload["result"]
 
 
