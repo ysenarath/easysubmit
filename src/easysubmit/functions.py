@@ -10,13 +10,12 @@ import tempfile
 import time
 import traceback
 from collections.abc import Callable
-from pathlib import Path
 from dataclasses import dataclass
-
-from nightjar import register
+from pathlib import Path
 
 import click
 import dill
+from nightjar import register
 from typing_extensions import Self
 
 from easysubmit.entities import Cluster, Job, Task, TaskConfig
