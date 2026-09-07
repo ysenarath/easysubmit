@@ -8,7 +8,9 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import __main__
-from easysubmit.entities import AutoTask, Cluster, Job, TaskConfig
+
+from nightjar import dispatch
+from easysubmit.entities import Cluster, Job, TaskConfig
 from easysubmit.helpers import format_hook, get_fingerprint
 from easysubmit.profiler import (
     SCALENE_DEPENDENCY_MISSING_ERROR,
@@ -80,7 +82,7 @@ def schedule(
     if isinstance(configs, (TaskConfig, dict)):
         configs = [configs]
 
-    tasks = [AutoTask(config) for config in configs]
+    tasks = [dispatch(TaskConfig, config) for config in configs]
 
     # write the configs to a json files
     task_fingerprints = []
@@ -180,7 +182,7 @@ def run_worker(
     if config is None:
         return
 
-    task = AutoTask(config)
+    task = dispatch(TaskConfig, config)
 
     if profile:
         with enable_profiling():

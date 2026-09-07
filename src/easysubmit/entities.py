@@ -16,7 +16,6 @@ __all__ = [
     "Cluster",
     "Task",
     "TaskConfig",
-    "AutoTask",
 ]
 
 
@@ -121,8 +120,3 @@ class Task:
 
     def run(self):
         raise NotImplementedError
-
-
-class AutoTask:
-    def __new__(cls, config: Any) -> Task:
-        return dispatch(TaskConfig, config)
