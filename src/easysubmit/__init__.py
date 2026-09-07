@@ -1,7 +1,7 @@
-from easysubmit.entities import Cluster, Job, Task, TaskConfig, AutoTask
-from easysubmit.slurm import SLURMCluster, SLURMConfig
-from easysubmit.functions import FunctionExecutor
 from easysubmit.base import schedule
+from easysubmit.entities import AutoTask, Cluster, Job, Task, TaskConfig
+from easysubmit.functions import FunctionExecutor
+from easysubmit.slurm import SLURMCluster, SLURMConfig
 
 __version__ = "0.4.0"
 
