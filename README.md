@@ -46,16 +46,21 @@ pip install easysubmit[scalene]
 Here's a simple example of how to use EasySubmit:
 
 ```python
+from dataclasses import dataclass
+from nightjar import register
+
 from easysubmit import SLURMCluster, SLURMConfig, Task, TaskConfig
 from easysubmit.base import schedule
 
 # Define your task configuration
+@dataclass(eq=False)
 class ExperimentConfig(TaskConfig):
     name: str = "MyExperiment"
     learning_rate: float = 0.001
     batch_size: int = 32
 
 # Define your task
+@register(name="MyExperiment")
 class Experiment(Task):
     config: ExperimentConfig
     
@@ -81,6 +86,26 @@ experiments = [
 
 schedule(cluster, experiments)
 ```
+
+## Migrating to Nightjar 0.1
+
+Task configurations now need `@dataclass(eq=False)`, and task implementations
+need explicit `@register(name="...")` from `nightjar`, as shown above. Declare
+`name` as a regular `str` field rather than `ClassVar` so it survives JSON
+serialization. Put required dataclass fields before fields with defaults.
+Import modules containing task registrations before calling `AutoTask` or
+loading saved configurations. Unknown fields raise `TypeError`; missing or
+ambiguous task matches raise `ValueError`.
+
+`AutoTask`, `TaskConfig.to_dict()`, `from_dict()`, and `from_json()` remain
+available. Loading through the base `TaskConfig` dispatches and constructs a
+task to obtain its configuration, so task constructors should only store
+configuration; put execution in `run()`. Concrete config `from_dict()` calls
+convert directly without constructing a task. Direct dataclass construction
+does not coerce field values.
+
+The dependency range is `nightjar>=0.1.0,<0.2.0`; the lockfile uses `0.1.1`
+because `0.1.0` was unavailable from the package index.
 
 ## Core Components
 

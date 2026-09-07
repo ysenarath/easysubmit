@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import time
-from typing import ClassVar
+from dataclasses import dataclass
+
+from nightjar import register
 
 from easysubmit import AutoTask, Task, TaskConfig
 
 
+@dataclass(eq=False)
 class ExampleTaskConfig1(TaskConfig):
-    name: ClassVar[str] = "ExampleTaskConfig1"
+    name: str = "ExampleTaskConfig1"
     param1: str = "default_value"
 
 
+@register(name="ExampleTaskConfig1")
 class ExampleTask(Task):
     config: ExampleTaskConfig1
 
@@ -19,11 +23,13 @@ class ExampleTask(Task):
         print(f"ExampleTask({self.config})")
 
 
+@dataclass(eq=False)
 class ExampleTaskConfig2(TaskConfig):
-    name: ClassVar[str] = "ExampleTaskConfig2"
+    name: str = "ExampleTaskConfig2"
     param1: str = "default_value"
 
 
+@register(name="ExampleTaskConfig2")
 class ExampleTask2(Task):
     config: ExampleTaskConfig2
 

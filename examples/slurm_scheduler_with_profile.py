@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import time
-from typing import ClassVar
+from dataclasses import dataclass
+
+from nightjar import register
 
 from easysubmit import SLURMCluster, SLURMConfig, Task, TaskConfig
 from easysubmit.base import schedule
 
 
+@dataclass(eq=False)
 class ExperimentConfig(TaskConfig):
-    name: ClassVar[str] = "Experiment"
+    name: str = "Experiment"
     param1: str = "default_value"
     param2: int = 0
 
@@ -22,6 +25,7 @@ def some_other_slow_function():
     print("Finished some_other_slow_function")
 
 
+@register(name="Experiment")
 class Experiment(Task):
     config: ExperimentConfig
 
