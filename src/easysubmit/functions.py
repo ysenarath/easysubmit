@@ -11,7 +11,9 @@ import time
 import traceback
 from collections.abc import Callable
 from pathlib import Path
-from typing import ClassVar
+from dataclasses import dataclass
+
+from nightjar import register
 
 import click
 import dill
@@ -204,13 +206,15 @@ class FunctionExecutor:
             os.remove(input_path)
 
 
+@dataclass(eq=False)
 class FileSystemWorkerConfig(TaskConfig):
-    name: ClassVar[str] = FSW_TASK_NAME
     dir: str
     task_id: str
+    name: str = FSW_TASK_NAME
     remove: bool = False
 
 
+@register(name=FSW_TASK_NAME)
 class FileSystemWorker(Task):
     config: FileSystemWorkerConfig
 

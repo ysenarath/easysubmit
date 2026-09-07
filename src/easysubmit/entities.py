@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Any, Callable, ClassVar
+from typing import Any, Callable
 
 from typing_extensions import Literal
-from nightjar import AutoModule, BaseModule, BaseConfig
+from nightjar import dispatch, from_dict, to_dict
 from easysubmit.helpers import get_fingerprint
 
 __all__ = [
@@ -76,8 +77,23 @@ class Job:
         return False
 
 
-class TaskConfig(BaseConfig, dispatch="name"):
-    name: ClassVar[str]
+@dataclass(eq=False)
+class TaskConfig:
+    """Base for dataclass task configurations with declared dispatch fields."""
+
+    def to_dict(self) -> dict:
+        return to_dict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TaskConfig:
+        """Convert a concrete config, or dispatch the base family to a task config.
+
+        Loading through TaskConfig constructs the registered task. Constructors
+        should only store configuration; perform work in run().
+        """
+        if cls is TaskConfig:
+            return dispatch(cls, data).config
+        return from_dict(cls, data)
 
     @property
     def fingerprint(self) -> str:
@@ -96,15 +112,16 @@ class TaskConfig(BaseConfig, dispatch="name"):
         return config
 
 
-class Task(BaseModule):
+class Task:
     config: TaskConfig
+
+    def __init__(self, config: TaskConfig):
+        self.config = config
 
     def run(self):
         raise NotImplementedError
 
 
-class AutoTask(AutoModule):
+class AutoTask:
     def __new__(cls, config: Any) -> Task:
-        if not isinstance(config, TaskConfig):
-            config = TaskConfig.from_dict(config)
-        return super().__new__(cls, config)
+        return dispatch(TaskConfig, config)
