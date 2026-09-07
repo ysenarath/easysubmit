@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-import json
 from pathlib import Path
 from typing import Any, Callable
 
-from typing_extensions import Literal
 from nightjar import dispatch, from_dict, to_dict
+from typing_extensions import Literal
+
 from easysubmit.helpers import get_fingerprint
 
 __all__ = [
