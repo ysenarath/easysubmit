@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import importlib
+import importlib.util
 import json
 import os
 import sys
+import time
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any, Callable, Generic, TypeVar
@@ -19,6 +22,43 @@ __all__ = [
 T = TypeVar("T")
 R = TypeVar("R")
 Type = type
+
+
+def import_function(file_or_module: str, func_name: str) -> callable:
+    if os.path.isfile(file_or_module):
+        # If path exists and is a file, load as module from path
+        module_name = (
+            f"_temp_module_{os.path.basename(file_or_module).replace('.', '_')}"
+        )
+        spec = importlib.util.spec_from_file_location(module_name, file_or_module)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot load module from path: {file_or_module}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+    else:
+        # Treat as regular module name
+        module = importlib.import_module(file_or_module)
+    if not hasattr(module, func_name):
+        raise AttributeError(f"Function '{func_name}' not found in {file_or_module}")
+    func = getattr(module, func_name)
+    if not callable(func):
+        raise TypeError(f"'{func_name}' exists in {file_or_module} but is not callable")
+    return func
+
+
+def wait_for_file(path, retries=10, delay=0.1):
+    last_size = -1
+    for _ in range(retries):
+        try:
+            size = os.path.getsize(path)
+            if size > 0 and size == last_size:
+                return True
+            last_size = size
+        except FileNotFoundError:
+            pass
+        time.sleep(delay)
+    return False
 
 
 def gettempdir() -> str:
