@@ -7,7 +7,7 @@ import os
 import sys
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
-from typing import Any, Callable, Generic, Type, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 
 from easysubmit.config import EASYSUBMIT_PATH
 
@@ -18,6 +18,7 @@ __all__ = [
 
 T = TypeVar("T")
 R = TypeVar("R")
+Type = type
 
 
 def gettempdir() -> str:
