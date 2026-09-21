@@ -12,8 +12,8 @@ from typing_extensions import Literal
 from easysubmit.helpers import get_fingerprint
 
 __all__ = [
-    "Job",
     "Cluster",
+    "Job",
     "Task",
     "TaskConfig",
 ]
