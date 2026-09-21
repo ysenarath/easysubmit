@@ -1,64 +1,20 @@
 from __future__ import annotations
 
-import functools
-import importlib
-import importlib.util
 import inspect
 import os
-import sys
 import tempfile
 import time
 import traceback
 from collections.abc import Callable
-from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 import click
 import dill
-from nightjar import register
 from typing_extensions import Self
 
-from easysubmit.entities import Cluster, Job, Task, TaskConfig
-from easysubmit.helpers import format_hook, gettempdir
-
-FSW_TASK_NAME = "FileSystemWorker"
-
-
-def wait_for_file(path, retries=10, delay=0.1):
-    last_size = -1
-    for _ in range(retries):
-        try:
-            size = os.path.getsize(path)
-            if size > 0 and size == last_size:
-                return True
-            last_size = size
-        except FileNotFoundError:
-            pass
-        time.sleep(delay)
-    return False
-
-
-def import_function(file_or_module: str, func_name: str) -> callable:
-    if os.path.isfile(file_or_module):
-        # If path exists and is a file, load as module from path
-        module_name = (
-            f"_temp_module_{os.path.basename(file_or_module).replace('.', '_')}"
-        )
-        spec = importlib.util.spec_from_file_location(module_name, file_or_module)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot load module from path: {file_or_module}")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-    else:
-        # Treat as regular module name
-        module = importlib.import_module(file_or_module)
-    if not hasattr(module, func_name):
-        raise AttributeError(f"Function '{func_name}' not found in {file_or_module}")
-    func = getattr(module, func_name)
-    if not callable(func):
-        raise TypeError(f"'{func_name}' exists in {file_or_module} but is not callable")
-    return func
+from easysubmit.entities import Cluster, Job
+from easysubmit.helpers import format_hook, gettempdir, import_function, wait_for_file
 
 
 class BoundFunction:
@@ -179,14 +135,7 @@ class FunctionExecutor:
         task_id = temp_dir.name
         job = None
         if self.cluster:
-            job = basic_schedule(
-                self.cluster,
-                {
-                    "name": FSW_TASK_NAME,
-                    "dir": str(self.dir),
-                    "task_id": task_id,
-                },
-            )
+            job = _schedule(self.cluster, dir=str(self.dir), task_id=task_id)
         return Future(self.dir, task_id, job=job)
 
     def execute(self, task_id: str, remove: bool = False):
@@ -205,44 +154,24 @@ class FunctionExecutor:
             os.remove(input_path)
 
 
-@dataclass(eq=False)
-class FileSystemWorkerConfig(TaskConfig):
-    dir: str
-    task_id: str
-    name: str = FSW_TASK_NAME
-    remove: bool = False
-
-
-@register(name=FSW_TASK_NAME)
-class FileSystemWorker(Task):
-    config: FileSystemWorkerConfig
-
-    def run(self):
-        fx = FunctionExecutor(dir=self.config.dir)
-        fx.execute(task_id=self.config.task_id, remove=self.config.remove)
-
-
-def basic_schedule(
-    cluster: Cluster,
-    config: dict | FileSystemWorkerConfig,
+def _schedule(
+    cluster: Cluster, dir: str | Path, task_id: str, remove: bool = False
 ) -> Job:
-    if not isinstance(config, FileSystemWorkerConfig):
-        config = FileSystemWorkerConfig.from_dict(config)
-    path = Path(config.dir).resolve()
-    base_dir = path / config.task_id / "logs"
+    path = Path(dir).resolve()
+    base_dir = path / task_id / "logs"
     cmd_args = [
         "python",
-        inspect.getfile(basic_schedule),
+        inspect.getfile(_schedule),
         "--dir",
         str(path),
         "--task-id",
-        config.task_id,
+        task_id,
     ]
-    if config.remove:
+    if remove:
         cmd_args.append("--remove")
     return cluster.schedule(
         cmd_args,
-        functools.partial(format_hook, base_dir=base_dir),
+        partial(format_hook, base_dir=base_dir),
     )
 
 
