@@ -172,3 +172,4 @@ examples/test_load_metric.py
 examples/test_save_metric.py
 
 artifacts/
+examples/
