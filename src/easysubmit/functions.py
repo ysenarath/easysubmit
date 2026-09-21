@@ -62,7 +62,7 @@ def import_function(file_or_module: str, func_name: str) -> callable:
 
 
 class BoundFunction:
-    __slots__ = ("module", "name", "args", "kwargs")
+    __slots__ = ("args", "kwargs", "module", "name")
 
     def __init__(self, __func: Callable, /, *args, **kwargs):
         m = inspect.getmodule(__func)
@@ -122,7 +122,7 @@ class Future:
     def done(self) -> bool:
         return self.get_output_path().exists()
 
-    def wait(self, timeout: int | float | None = None):
+    def wait(self, timeout: float | None = None):
         # busy wait for the output file to be created
         output_path = self.get_output_path()
         start = time.time()
