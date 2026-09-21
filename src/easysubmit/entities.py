@@ -1,21 +1,13 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable
 
-from nightjar import dispatch, from_dict, to_dict
 from typing_extensions import Literal
-
-from easysubmit.helpers import get_fingerprint
 
 __all__ = [
     "Cluster",
     "Job",
-    "Task",
-    "TaskConfig",
 ]
 
 
@@ -76,48 +68,3 @@ class Job:
     @classmethod
     def is_available(cls) -> bool:
         return False
-
-
-@dataclass(eq=False)
-class TaskConfig:
-    """Base for dataclass task configurations with declared dispatch fields."""
-
-    def to_dict(self) -> dict:
-        return to_dict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict) -> TaskConfig:
-        """Convert a concrete config, or dispatch the base family to a task config.
-
-        Loading through TaskConfig constructs the registered task. Constructors
-        should only store configuration; perform work in run().
-        """
-        if cls is TaskConfig:
-            return dispatch(cls, data).config
-        return from_dict(cls, data)
-
-    @property
-    def fingerprint(self) -> str:
-        return get_fingerprint(self.to_dict())
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, TaskConfig):
-            raise NotImplementedError
-        # both id and fingerprint must be equal
-        return self.fingerprint == other.fingerprint
-
-    @classmethod
-    def from_json(cls, path: str | Path) -> TaskConfig:
-        with open(path, "r", encoding="utf-8") as f:
-            config = cls.from_dict(json.load(f))
-        return config
-
-
-class Task:
-    config: TaskConfig
-
-    def __init__(self, config: TaskConfig):
-        self.config = config
-
-    def run(self):
-        raise NotImplementedError
