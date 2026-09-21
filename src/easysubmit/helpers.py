@@ -39,12 +39,14 @@ def get_current_venv() -> Path:
 
 @contextmanager
 def capture(outfile: Path, errfile: Path):
+    """Context manager to capture stdout and stderr to specified files."""
     with (
         open(outfile, "w", encoding="utf-8") as outfile,
         open(errfile, "w", encoding="utf-8") as errfile,
+        redirect_stdout(outfile),
+        redirect_stderr(errfile),
     ):
-        with redirect_stdout(outfile), redirect_stderr(errfile):
-            yield
+        yield
 
 
 class ValidationError(ValueError):
