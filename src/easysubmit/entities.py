@@ -24,6 +24,7 @@ class Cluster:
         self,
         __args: Sequence[str],
         __format_hook: Callable | None = None,
+        /,
         **kwargs,
     ) -> Job:
         raise NotImplementedError
