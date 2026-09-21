@@ -6,9 +6,9 @@ from contextlib import contextmanager
 try:
     from scalene import scalene_profiler
 except ImportError:
-    scalene_profiler = None  # type: ignore[assignment]
+    scalene_profiler = None
 
-SCALENE_DEPENDENCY_MISSING_ERROR = "Scalene profiler is not installed. Please install it with `pip install easysubmit[scalene]`."
+SCALENE_MISSING_ERROR = "scalene profiler is not installed"
 
 
 def is_profiler_avilable() -> bool:
@@ -19,7 +19,7 @@ def is_profiler_avilable() -> bool:
 @contextmanager
 def enable_profiling() -> Generator[None, None, None]:
     if scalene_profiler is None:
-        raise ImportError(SCALENE_DEPENDENCY_MISSING_ERROR)
+        raise ImportError(SCALENE_MISSING_ERROR)
     scalene_profiler.start()
     try:
         yield
@@ -29,11 +29,11 @@ def enable_profiling() -> Generator[None, None, None]:
 
 def start_profiling() -> None:
     if scalene_profiler is None:
-        raise ImportError(SCALENE_DEPENDENCY_MISSING_ERROR)
+        raise ImportError(SCALENE_MISSING_ERROR)
     scalene_profiler.start()
 
 
 def stop_profiling() -> None:
     if scalene_profiler is None:
-        raise ImportError(SCALENE_DEPENDENCY_MISSING_ERROR)
+        raise ImportError(SCALENE_MISSING_ERROR)
     scalene_profiler.stop()
