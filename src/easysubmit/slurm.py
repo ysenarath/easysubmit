@@ -14,17 +14,17 @@ from easysubmit.entities import Cluster, Job
 from easysubmit.helpers import get_current_venv
 
 __all__ = [
+    "SLURMCluster",
     "SLURMConfig",
-    "build_sbatch_script",
-    "sbatch",
     "SLURMJob",
-    "get_slurm_job_array",
-    "parse_slurm_array_arg",
+    "build_sbatch_script",
     "format_slurm_array_arg",
-    "get_slurm_job_id",
     "get_slurm_array_job_id",
     "get_slurm_array_task_id",
-    "SLURMCluster",
+    "get_slurm_job_array",
+    "get_slurm_job_id",
+    "parse_slurm_array_arg",
+    "sbatch",
 ]
 
 
@@ -35,7 +35,7 @@ class Lmod:
         lsmod = os.path.join(os.environ["LMOD_PKG"], "libexec", "lmod")
         args = [lsmod, "python", command]
         proc = subprocess.Popen(
-            args,  # noqa: S603
+            args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -67,7 +67,7 @@ class SLURMConfig:
     output: str | None = None
     error: str | None = None
     job_name: str = "default"
-    array: None | list[int] | str = None
+    array: list[int] | str | None = None
     modules: list[str] | None = field(default_factory=Lmod.list)
     cwd: str | None = field(default_factory=Path.cwd)
     venv: str | None = field(default_factory=get_current_venv)
@@ -90,8 +90,7 @@ def build_sbatch_script(args: Sequence[str], config: SLURMConfig) -> str:
             modules = " ".join(config.modules)
         slurm.append(f"module load {modules}")
     if config.cwd:
-        slurm.append("")
-        slurm.append(f"cd {config.cwd}")
+        slurm.extend(["", f"cd {config.cwd}"])
     slurm.append("")
     slurm.extend(
         [
@@ -108,20 +107,20 @@ def build_sbatch_script(args: Sequence[str], config: SLURMConfig) -> str:
     activate_path = Path(config.venv) / "bin" / "activate"
     if config.venv and activate_path.exists():
         # only required if venv is not activated
-        slurm.append("")
-        slurm.append(f"source {activate_path}")
+        slurm.extend(["", f"source {activate_path}"])
     elif config.venv:
-        slurm.append("")
-        slurm.append(f"export PATH={config.venv}/bin:$PATH")
-        # slurm.append(f"alias python='{config.venv}/bin/python")
-        # slurm.append(f"alias pip='{config.venv}/bin/pip")
-        # echo "Python: `which python`"
-        slurm.append('echo "Path to Python: `which python`"')
+        slurm.extend(
+            [
+                "",
+                f"export PATH={config.venv}/bin:$PATH",
+                # f"alias python='{config.venv}/bin/python"
+                # f"alias pip='{config.venv}/bin/pip"
+                'echo "Path to Python: `which python`"',
+            ]
+        )
     else:
         raise ValueError("no python environment found")
-
-    slurm.append("")
-    slurm.append(" ".join(args))
+    slurm.extend(["", " ".join(args)])
     return "\n".join(slurm)
 
 
@@ -130,7 +129,7 @@ def sbatch(path: str | Path) -> SLURMJob:
         path = str(path)
     command = ["sbatch", path]
     proc = subprocess.Popen(
-        command,  # noqa: S603
+        command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -145,7 +144,7 @@ def sbatch(path: str | Path) -> SLURMJob:
 class SLURMJob(Job):
     def get_status(self) -> str:
         status = subprocess.run(
-            [  # noqa: S603, S607
+            [
                 "sacct",
                 "-j",
                 self.id,
@@ -172,10 +171,7 @@ class SLURMJob(Job):
         return "UNKNOWN"
 
     def cancel(self):
-        subprocess.run(
-            ["scancel", self.id],  # noqa: S603, S607
-            check=False,
-        )
+        subprocess.run(["scancel", self.id], check=False)
 
     def __repr__(self):
         return f"SLURMJob(job_id={self.id})"
@@ -183,7 +179,7 @@ class SLURMJob(Job):
 
 def get_slurm_job_array(id: int | str) -> list[Job]:
     result: CompletedProcess[bytes] = subprocess.run(
-        [  # noqa: S603, S607
+        [
             "sacct",
             "-j",
             str(id),
@@ -271,7 +267,7 @@ class SLURMCluster(Cluster):
     def __init__(self, config: SLURMConfig):
         self.config = config
 
-    def get_job(self, id: str | None = None) -> Job:  # noqa: PLR6301
+    def get_job(self, id: str | None = None) -> Job:
         if id is None:
             id = get_slurm_job_id()
         return SLURMJob(id)
@@ -282,7 +278,7 @@ class SLURMCluster(Cluster):
         return SLURMJob(id)
 
     def schedule(
-        self, __args: Sequence[str], __format_hook: Callable | None = None, **kwargs
+        self, __args: Sequence[str], __format_hook: Callable | None = None, /, **kwargs
     ) -> SLURMJob:
         config = copy.deepcopy(self.config)
         for key, value in kwargs.items():
@@ -307,7 +303,7 @@ class SLURMCluster(Cluster):
     @classmethod
     def is_available(cls) -> bool:
         try:
-            subprocess.run(  # noqa: S603, S607
+            subprocess.run(
                 ["sinfo"],
                 capture_output=True,
                 check=True,
