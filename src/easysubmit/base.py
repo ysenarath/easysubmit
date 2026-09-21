@@ -7,9 +7,9 @@ import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
-import __main__
-
 from nightjar import dispatch
+
+import __main__
 from easysubmit.entities import Cluster, Job, TaskConfig
 from easysubmit.helpers import format_hook, get_fingerprint
 from easysubmit.profiler import (
