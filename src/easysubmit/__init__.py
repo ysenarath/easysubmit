@@ -6,12 +6,12 @@ from easysubmit.slurm import SLURMCluster, SLURMConfig
 __version__ = "0.4.0"
 
 __all__ = [
-    "Task",
-    "TaskConfig",
-    "Job",
     "Cluster",
+    "FunctionExecutor",
+    "Job",
     "SLURMCluster",
     "SLURMConfig",
+    "Task",
+    "TaskConfig",
     "schedule",
-    "FunctionExecutor",
 ]
